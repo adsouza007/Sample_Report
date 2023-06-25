@@ -1,0 +1,36 @@
+REPORT zfmr003_proj_budget_bal.
+
+" Include for Global Data Declaration
+INCLUDE zfmr003_proj_budget_bal_top.
+
+" Include for Selection Screen Declaration
+INCLUDE zfmr003_proj_budget_bal_sel.
+
+" Include for Process and Extraction
+INCLUDE zfmr003_proj_budget_bal_proc.
+
+" Include for ALV Forms & Layout
+INCLUDE zfmr003_proj_budget_bal_forms.
+
+
+* Initialization
+INITIALIZATION.
+  pa_asof = |{ sy-datum+4(2) }/{ sy-datum+6(2) }/{ sy-datum(4) } | &&
+            |{ sy-timlo(2) }:{ sy-timlo+2(2) }:{ sy-timlo+4(2) }|.
+
+* Start of Selection
+START-OF-SELECTION.
+  lcl_process_data=>fill_range( ).
+  lcl_process_data=>fill_tvarvc( ).
+
+  DATA(lt_final) = lcl_process_data=>get_data( ).
+
+  IF lt_final IS NOT INITIAL.
+    lcl_process_data=>create_tree( CHANGING ct_final = lt_final ).
+
+  ELSE.
+
+    MESSAGE gc_msg1 TYPE 'I'.
+    LEAVE LIST-PROCESSING.
+
+  ENDIF.
