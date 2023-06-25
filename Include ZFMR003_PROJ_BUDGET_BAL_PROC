@@ -1,0 +1,1741 @@
+*&---------------------------------------------------------------------*
+*& Include ZFMR003_PROJ_BUDGET_BAL_PROC
+************************************************************************
+************************************************************************
+
+CLASS lcl_process_data IMPLEMENTATION.
+  METHOD f4_group.
+
+    CALL FUNCTION 'FM_GROUP_F4_GROUP_NAME'
+      EXPORTING
+        i_class       = iv_grclass
+        i_fikrs       = gc_fm_area
+      IMPORTING
+        e_group_name  = cv_paramtr
+      EXCEPTIONS
+        input_error   = 1
+        no_set_picked = 2.
+
+  ENDMETHOD.
+
+  METHOD fill_range.
+
+    DATA: lr_grant TYPE  fmbs_t_rgrant_nbr,
+          lr_fincd TYPE  fmbs_t_rfund,
+          lr_fictr TYPE  fmbs_t_rfundsctr,
+          lr_fipex TYPE  fmbs_t_rcmmtitem,
+          lr_farea TYPE  fmbs_t_rfuncarea,
+          lr_measr TYPE  fmbs_t_rmeasure,
+          lr_budpr TYPE  fmbs_t_rbudgetpd.
+
+    DEFINE get_objects_to_range.
+
+      CALL FUNCTION 'FM_GROUP_GET_OBJECTS_TO_RANGE'
+        EXPORTING
+          i_class              = &1
+          i_group_name         = &2
+          i_fikrs              = gc_fm_area
+        TABLES
+          t_rfipex             = lr_fipex
+          t_rfictr             = lr_fictr
+          t_rfincd             = lr_fincd
+          t_rbudper            = lr_budpr
+          t_rfarea             = lr_farea
+          t_rgrant             = lr_grant
+          t_rmeas              = lr_measr
+        EXCEPTIONS
+          input_error          = 1
+          error_setid_encrypt  = 2
+          error_hierarchy_read = 3.
+
+      CASE &1.
+        WHEN '0114'.
+          pr_budpd[] = lr_budpr[].
+        WHEN '0112'.
+          pr_farea[] = lr_farea[].
+        WHEN '0315'.
+          pr_mesr[]  = lr_measr[].
+        WHEN '0111'.
+          pr_fund[]  = lr_fincd[].
+        WHEN '0312'.
+          pr_fndc[]  = lr_fictr[].
+        WHEN '0311'.
+          pr_fipex[] = lr_fipex[].
+        WHEN '0113'.
+          pr_grant[] = lr_grant[].
+        WHEN OTHERS.
+      ENDCASE.
+
+      CLEAR: lr_budpr, lr_farea, lr_measr, lr_fincd, lr_fictr, lr_fipex, lr_grant.
+
+    END-OF-DEFINITION.
+
+    IF pa_budpd IS NOT INITIAL.
+      CLEAR: pr_budpd.
+      get_objects_to_range '0114' pa_budpd.
+    ENDIF.
+
+    IF pa_farea IS NOT INITIAL.
+      CLEAR: pr_farea.
+      get_objects_to_range '0112' pa_farea.
+    ENDIF.
+
+    IF pa_mesrg IS NOT INITIAL.
+      CLEAR: pr_mesr.
+      get_objects_to_range '0315' pa_mesrg.
+    ENDIF.
+
+    IF pa_fundg IS NOT INITIAL.
+      CLEAR: pr_fund.
+      get_objects_to_range '0111' pa_fundg.
+    ENDIF.
+
+    IF pa_fndcg IS NOT INITIAL.
+      CLEAR: pr_fndc.
+      get_objects_to_range '0312' pa_fndcg.
+    ENDIF.
+
+    IF pa_fpexg IS NOT INITIAL.
+      CLEAR: pr_fipex.
+      get_objects_to_range '0311' pa_fpexg.
+    ENDIF.
+
+    IF pa_grntg IS NOT INITIAL.
+      CLEAR: pr_grant.
+      get_objects_to_range '0113' pa_grntg.
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD fill_tvarvc.
+    SELECT * FROM tvarvc
+      WHERE name LIKE 'ZFM_R005_%'
+      INTO TABLE @DATA(lt_tvarvc).
+    IF sy-subrc EQ 0.
+      gr_process = VALUE #( FOR ls IN lt_tvarvc
+                            WHERE ( name = 'ZFM_R005_BUDGET_PROCESS' )
+                            ( CORRESPONDING #( ls MAPPING option = opti ) ) ).
+
+      gr_budtyp1 = VALUE #( FOR ls IN lt_tvarvc
+                            WHERE ( name = 'ZFM_R005_BUDGET_TYPE_1' )
+                            ( CORRESPONDING #( ls MAPPING option = opti ) ) ).
+
+      gr_budtyp2 = VALUE #( FOR ls IN lt_tvarvc
+                            WHERE ( name = 'ZFM_R005_BUDGET_TYPE_2' )
+                            ( CORRESPONDING #( ls MAPPING option = opti ) ) ).
+
+      gr_doctyp1 = VALUE #( FOR ls IN lt_tvarvc
+                            WHERE ( name = 'ZFM_R005_BUDGET_DOC_TYPE_1' )
+                            ( CORRESPONDING #( ls MAPPING option = opti ) ) ).
+
+      gr_doctyp2 = VALUE #( FOR ls IN lt_tvarvc
+                            WHERE ( name = 'ZFM_R005_BUDGET_DOC_TYPE_2' )
+                            ( CORRESPONDING #( ls MAPPING option = opti ) ) ).
+
+      gr_budtyp  = VALUE #( FOR ls IN lt_tvarvc
+                            WHERE ( name = 'ZFM_R005_BUDGET_TYPE_1' OR  name = 'ZFM_R005_BUDGET_TYPE_2' )
+                            ( CORRESPONDING #( ls MAPPING option = opti ) ) ).
+
+      gr_doctyp  = VALUE #( FOR ls IN lt_tvarvc
+                            WHERE ( name = 'ZFM_R005_BUDGET_DOC_TYPE_1' OR name = 'ZFM_R005_BUDGET_DOC_TYPE_2')
+                            ( CORRESPONDING #( ls MAPPING option = opti ) ) ).
+
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD get_data.
+    DATA: lt_combo TYPE TABLE OF ts_combo,
+          ls_combo TYPE ts_combo,
+          lt_fmit  TYPE tt_fmit,
+          lt_fmbl  TYPE tt_fmbl.
+
+    SELECT rldnr,
+           rrcty,
+           rvers,
+           ryear,
+           robjnr,
+           cobjnr,
+           sobjnr,
+           rtcur,
+           rpmax,
+           rfistl,
+           rfonds,
+           rfipex,
+           rwrttp,
+           rfarea,
+           rmeasure,
+           grant_nbr,
+           budget_pd,
+           tslvt,
+           tsl01,
+           tsl02,
+           tsl03,
+           tsl04,
+           tsl05,
+           tsl06,
+           tsl07,
+           tsl08,
+           tsl09,
+           tsl10,
+           tsl11,
+           tsl12,
+           tsl13,
+           tsl14,
+           tsl15,
+           tsl16,
+           prps~objnr,
+           prps~psphi,
+           prps~post1,
+           prps~stufe,
+           fmit~rstats
+      FROM fmit
+      INNER JOIN prps
+      ON ( fmit~rmeasure EQ prps~posid )
+      WHERE rldnr     EQ @gc_rldnr
+      AND   ryear     IN @pr_fyear
+      AND   rmeasure  IN @pr_mesr
+      AND   rfonds    IN @pr_fund
+      AND   budget_pd IN @pr_budpd
+      AND   rfistl    IN @pr_fndc
+      AND   rfipex    IN @pr_fipex
+      AND   rfarea    IN @pr_farea
+      AND   grant_nbr IN @pr_grant
+      AND   rbukrs    EQ @gc_rbukrs
+      AND   rwrttp    IN ('50', '80', '51', '52', '65', '81', '60', '54', '66', '95')
+      INTO TABLE @lt_fmit.
+
+    IF pc_statp EQ abap_false.
+      DELETE lt_fmit WHERE rstats EQ abap_true.
+    ENDIF.
+
+    SELECT fmbl~fm_area,
+           fmbl~docyear,
+           fmbl~docnr,
+           docln,
+           rpmax,
+           fiscyear,
+           fund,
+           budget_pd,
+           fundsctr,
+           cmmtitem,
+           funcarea,
+           grant_nbr,
+           measure,
+           budcat,
+           valtype,
+           process,
+           budtype,
+           tval01,
+           tval02,
+           tval03,
+           tval04,
+           tval05,
+           tval06,
+           tval07,
+           tval08,
+           tval09,
+           tval10,
+           tval11,
+           tval12,
+           tval13,
+           tval14,
+           tval15,
+           tval16,
+           fmbh~doctype,
+           prps~objnr,
+           prps~psphi,
+           prps~post1,
+           prps~stufe
+      FROM fmbl
+      INNER JOIN fmbh
+      ON ( fmbl~fm_area EQ fmbh~fm_area
+      AND  fmbl~docyear EQ fmbh~docyear
+      AND  fmbl~docnr   EQ fmbh~docnr )
+      INNER JOIN prps
+      ON ( fmbl~measure EQ prps~posid )
+      WHERE fiscyear      IN @pr_fyear
+      AND   measure       IN @pr_mesr
+      AND   fund          IN @pr_fund
+      AND   budget_pd     IN @pr_budpd
+      AND   fundsctr      IN @pr_fndc
+      AND   cmmtitem      IN @pr_fipex
+      AND   funcarea      IN @pr_farea
+      AND   grant_nbr     IN @pr_grant
+      AND   fmbl~fm_area  EQ @gc_fm_area
+      AND   valtype       EQ @gc_valtype
+      AND   budcat        EQ @gc_budcat
+      AND   process       IN @gr_process
+      AND   budtype       IN @gr_budtyp
+      AND   fmbh~docstate IN ( '1', '3' )
+      AND   fmbh~version  EQ '000'
+      AND   fmbh~doctype  IN @gr_doctyp
+      INTO TABLE @lt_fmbl.
+
+    CLEAR: lt_combo, ls_combo.
+    IF lt_fmit IS NOT INITIAL.
+      LOOP AT lt_fmit ASSIGNING FIELD-SYMBOL(<fs_fmit>).
+        ls_combo = CORRESPONDING #( <fs_fmit> ).
+
+        DATA(lv_sum) = CONV tslvt9_cs( <fs_fmit>-tslvt + <fs_fmit>-tsl01 + <fs_fmit>-tsl02 + <fs_fmit>-tsl03
+                     + <fs_fmit>-tsl04 + <fs_fmit>-tsl05 + <fs_fmit>-tsl06 + <fs_fmit>-tsl07
+                     + <fs_fmit>-tsl08 + <fs_fmit>-tsl09 + <fs_fmit>-tsl10 + <fs_fmit>-tsl11
+                     + <fs_fmit>-tsl12 + <fs_fmit>-tsl13 + <fs_fmit>-tsl14 + <fs_fmit>-tsl15
+                     + <fs_fmit>-tsl16 ).
+        CASE <fs_fmit>-rwrttp.
+          WHEN '50' OR '80'.
+            ls_combo-preenc = lv_sum.
+          WHEN '51' OR '52' OR '65' OR '81'.
+            ls_combo-encmbr = lv_sum.
+          WHEN '60'.
+            ls_combo-parkdc = lv_sum.
+          WHEN '54' OR '66' OR '95'.
+            ls_combo-actual = lv_sum.
+          WHEN OTHERS.
+        ENDCASE.
+
+        CALL FUNCTION 'CONVERSION_EXIT_ABPSN_OUTPUT' ##FM_SUBRC_OK
+          EXPORTING
+            input  = ls_combo-rmeasure
+          IMPORTING
+            output = ls_combo-posid.
+
+        IF ls_combo-posid IS NOT INITIAL.
+          CALL FUNCTION 'CONVERSION_EXIT_ABPSP_INPUT' ##FM_SUBRC_OK
+            EXPORTING
+              input     = ls_combo-posid
+            IMPORTING
+              output    = ls_combo-pspnr
+            EXCEPTIONS
+              not_found = 1
+              OTHERS    = 2.
+        ENDIF.
+
+        COLLECT ls_combo INTO lt_combo.
+        CLEAR: ls_combo, lv_sum.
+      ENDLOOP.
+    ENDIF.
+
+    LOOP AT lt_combo ASSIGNING FIELD-SYMBOL(<fs_descombo>).
+      DATA(lt_descombo) = lt_combo.
+      DELETE lt_descombo WHERE rmeasure NE <fs_descombo>-rmeasure.
+      DESCRIBE TABLE lt_descombo LINES <fs_descombo>-count.
+      CLEAR: lt_descombo.
+    ENDLOOP.
+
+    IF lt_fmbl IS NOT INITIAL.
+      LOOP AT lt_fmbl ASSIGNING FIELD-SYMBOL(<fs_fmbl>).
+
+        ls_combo-rmeasure   = <fs_fmbl>-measure.
+        ls_combo-rfipex     = <fs_fmbl>-cmmtitem.
+        ls_combo-rfonds     = <fs_fmbl>-fund.
+        ls_combo-rfistl     = <fs_fmbl>-fundsctr.
+        ls_combo-budget_pd  = <fs_fmbl>-budget_pd.
+        ls_combo-rfarea     = <fs_fmbl>-funcarea.
+        ls_combo-grant_nbr  = <fs_fmbl>-grant_nbr.
+        ls_combo-objnr      = <fs_fmbl>-objnr.
+        ls_combo-post1      = <fs_fmbl>-post1.
+        ls_combo-stufe      = <fs_fmbl>-stufe.
+        ls_combo-psphi      = <fs_fmbl>-psphi.
+
+        lv_sum = <fs_fmbl>-tval01 + <fs_fmbl>-tval02 + <fs_fmbl>-tval03 + <fs_fmbl>-tval04
+               + <fs_fmbl>-tval05 + <fs_fmbl>-tval06 + <fs_fmbl>-tval07 + <fs_fmbl>-tval08
+               + <fs_fmbl>-tval09 + <fs_fmbl>-tval10 + <fs_fmbl>-tval11 + <fs_fmbl>-tval12
+               + <fs_fmbl>-tval13 + <fs_fmbl>-tval14 + <fs_fmbl>-tval15 + <fs_fmbl>-tval16 .
+
+        IF <fs_fmbl>-budtype IN gr_budtyp1 AND <fs_fmbl>-doctype IN gr_doctyp1.
+          ls_combo-orgbud = lv_sum.
+        ELSEIF <fs_fmbl>-budtype IN gr_budtyp2 AND <fs_fmbl>-doctype IN gr_doctyp2.
+          ls_combo-atdjbud = lv_sum.
+        ENDIF.
+
+        ls_combo-cunbud = ls_combo-orgbud - ls_combo-atdjbud.
+
+        CALL FUNCTION 'CONVERSION_EXIT_ABPSN_OUTPUT' ##FM_SUBRC_OK
+          EXPORTING
+            input  = ls_combo-rmeasure
+          IMPORTING
+            output = ls_combo-posid.
+
+        IF ls_combo-posid IS NOT INITIAL.
+          CALL FUNCTION 'CONVERSION_EXIT_ABPSP_INPUT' ##FM_SUBRC_OK
+            EXPORTING
+              input     = ls_combo-posid
+            IMPORTING
+              output    = ls_combo-pspnr
+            EXCEPTIONS
+              not_found = 1
+              OTHERS    = 2.
+        ENDIF.
+
+        COLLECT ls_combo INTO lt_combo.
+        CLEAR: ls_combo, lv_sum.
+      ENDLOOP.
+    ENDIF.
+
+    IF lt_combo IS NOT INITIAL.
+      DATA: lt_prhi  TYPE TABLE OF prhi,
+            lt_final TYPE TABLE OF ts_combo.
+
+      SELECT fipex AS rfipex, text1
+        FROM fmcit
+        FOR ALL ENTRIES IN @lt_combo
+        WHERE spras EQ 'E'
+        AND   fikrs EQ @gc_fm_area
+*        AND   gjahr IN @pr_fyear
+        AND   fipex EQ @lt_combo-rfipex
+        INTO TABLE @DATA(lt_fmcit).
+      SORT lt_fmcit BY rfipex.
+
+      SELECT fictr AS rfistl, beschr AS fuctrtxt
+        FROM fmfctrt
+        FOR ALL ENTRIES IN @lt_combo
+        WHERE spras EQ 'E'
+        AND   fikrs EQ @gc_fm_area
+        AND   fictr EQ @lt_combo-rfistl
+        INTO TABLE @DATA(lt_fmfctrt).
+      SORT lt_fmfctrt BY rfistl.
+
+      SELECT grant_nbr, description
+        FROM gmgrtexts
+        FOR ALL ENTRIES IN @lt_combo
+        WHERE language EQ 'E'
+        AND   grant_nbr EQ @lt_combo-grant_nbr
+        INTO TABLE @DATA(lt_gmgrtexts).
+      SORT lt_gmgrtexts BY grant_nbr.
+
+      SELECT * FROM fmfincode
+        FOR ALL ENTRIES IN @lt_combo
+        WHERE fikrs   EQ @gc_fm_area
+        AND   fincode EQ @lt_combo-rfonds
+        INTO TABLE @DATA(lt_fmfincode).
+      SORT lt_fmfincode BY fincode.
+
+      SELECT budget_pd, budgetpdtx
+        FROM fmbudgetpdt
+        FOR ALL ENTRIES IN @lt_combo
+        WHERE spras     EQ 'E'
+        AND   budget_pd EQ @lt_combo-budget_pd
+        INTO TABLE @DATA(lt_fmbudgetpdt).
+      SORT lt_fmbudgetpdt BY budget_pd.
+
+      SELECT fkber AS rfarea, fkbtx
+        FROM  tfkbt
+        FOR ALL ENTRIES IN @lt_combo
+        WHERE spras EQ 'E'
+        AND   fkber EQ @lt_combo-rfarea
+        INTO TABLE @DATA(lt_tfkbt).
+      SORT lt_tfkbt BY rfarea.
+
+      IF lt_fmfincode IS NOT INITIAL.
+        SELECT fincode, beschr
+          FROM fmfint
+          FOR ALL ENTRIES IN @lt_fmfincode
+          WHERE spras   EQ 'E'
+          AND   fikrs   EQ @gc_fm_area
+          AND   fincode EQ @lt_fmfincode-fincode
+          INTO TABLE @DATA(lt_fmfint).
+        SORT lt_fmfint BY fincode.
+
+        SELECT * FROM zfmt_mof
+          FOR ALL ENTRIES IN @lt_fmfincode
+          WHERE mof EQ @lt_fmfincode-zzmof
+          INTO TABLE @DATA(lt_zfmt_mof).
+        SORT lt_zfmt_mof BY mof.
+
+        SELECT * FROM zfmt_prgid
+          FOR ALL ENTRIES IN @lt_fmfincode
+          WHERE programid EQ @lt_fmfincode-zzprogramid
+          INTO TABLE @DATA(lt_zfmt_prgid).
+        SORT lt_zfmt_prgid BY programid.
+
+        SELECT fund_type AS type, fund_typet
+          FROM fmfundtypet
+          FOR ALL ENTRIES IN @lt_fmfincode
+          WHERE fm_area   EQ @gc_fm_area
+          AND   fund_type EQ @lt_fmfincode-type
+          AND   langu     EQ 'E'
+          INTO TABLE @DATA(lt_fmfundtypet).
+        SORT lt_fmfundtypet BY type.
+
+        SELECT finuse, beschr AS finusetxt
+          FROM fmfuset
+          FOR ALL ENTRIES IN @lt_fmfincode
+          WHERE spras  EQ 'E'
+          AND   fikrs  EQ @gc_fm_area
+          AND   finuse EQ @lt_fmfincode-finuse
+          INTO TABLE @DATA(lt_fmfuset).
+        SORT lt_fmfuset BY finuse.
+      ENDIF.
+
+      DATA(lt_ctemp) = lt_combo.
+      SORT lt_ctemp BY psphi.
+      DELETE ADJACENT DUPLICATES FROM lt_ctemp COMPARING psphi.
+
+      LOOP AT lt_ctemp ASSIGNING FIELD-SYMBOL(<fs_ctemp>).
+
+        CALL FUNCTION 'GET_PROJECT_HIERARCHY' ##FM_SUBRC_OK
+          EXPORTING
+            i_pronr   = <fs_ctemp>-psphi
+          TABLES
+            t_prhi    = lt_prhi
+          EXCEPTIONS
+            not_found = 1
+            OTHERS    = 2.
+
+        IF lt_prhi IS NOT INITIAL.
+          SELECT pspnr, posid, objnr, psphi, stufe, post1
+            FROM prps
+            FOR ALL ENTRIES IN @lt_prhi
+            WHERE pspnr = @lt_prhi-posnr
+            INTO TABLE @DATA(lt_prps).
+          IF sy-subrc EQ 0.
+            DATA(lt_pcom) = lt_combo.
+            DELETE lt_pcom WHERE count LT 2.
+            DELETE lt_pcom WHERE stufe NE 3.
+            SORT lt_pcom BY rmeasure.
+            DELETE ADJACENT DUPLICATES FROM lt_pcom COMPARING rmeasure.
+            LOOP AT lt_pcom ASSIGNING FIELD-SYMBOL(<fs_c>).
+              DATA(ls_prc) = VALUE #( lt_prps[ posid = <fs_c>-rmeasure ] OPTIONAL ).
+              IF ls_prc IS NOT INITIAL.
+                DATA(lv_loop) = <fs_c>-count - 1.
+                DO lv_loop TIMES.
+                  APPEND ls_prc TO lt_prps.
+                ENDDO.
+                CLEAR: lv_loop, ls_prc.
+              ENDIF.
+            ENDLOOP.
+
+            LOOP AT lt_prps ASSIGNING FIELD-SYMBOL(<fs_prps>).
+              IF pc_stat IS NOT INITIAL AND ( <fs_prps>-stufe EQ 3 OR <fs_prps>-stufe EQ 2 ).
+                SELECT SINGLE measure
+                  FROM fmmeasure
+                  WHERE fmarea EQ @gc_fm_area
+                  AND   measure EQ @<fs_prps>-posid
+                  AND   fp_type EQ 'CAPT'
+                  INTO @DATA(lv_measure).
+                IF sy-subrc EQ 0 AND lv_measure IS NOT INITIAL.
+                  SELECT SINGLE objnr
+                    FROM jest
+                    WHERE objnr EQ @<fs_prps>-objnr
+                    AND   stat  EQ 'I0046'
+                    AND   inact IS INITIAL
+                    INTO @DATA(lv_objnr).
+                  IF sy-subrc EQ 0.
+                    DATA(lv_opencls) = abap_true.
+                  ENDIF.
+                ENDIF.
+              ENDIF.
+
+              IF lv_opencls EQ abap_false.
+                APPEND INITIAL LINE TO lt_final ASSIGNING FIELD-SYMBOL(<fs_final>).
+                <fs_final> = CORRESPONDING #( <fs_prps> ).
+              ENDIF.
+              CLEAR: lv_measure, lv_objnr, lv_opencls.
+            ENDLOOP.
+          ENDIF.
+          CLEAR: lt_prps, lt_prhi.
+        ENDIF.
+      ENDLOOP.
+
+      SORT lt_final BY psphi pspnr stufe.
+      SORT lt_combo BY psphi pspnr stufe.
+      LOOP AT lt_final ASSIGNING <fs_final>.
+        READ TABLE lt_combo ASSIGNING <fs_ctemp>
+                            WITH KEY psphi = <fs_final>-psphi
+                                     pspnr = <fs_final>-pspnr
+                                     stufe = <fs_final>-stufe
+                            BINARY SEARCH.
+        IF sy-subrc EQ 0.
+          DATA(lv_tbx) = sy-tabix.
+          <fs_final> = CORRESPONDING #( <fs_ctemp> ).
+          <fs_final>-differnce = <fs_final>-orgbud - <fs_final>-preenc - <fs_final>-encmbr
+                               - <fs_final>-parkdc - <fs_final>-actual.
+          IF <fs_final>-differnce IS NOT INITIAL AND <fs_final>-cunbud IS NOT INITIAL.
+            <fs_final>-spentper = ( <fs_final>-differnce / <fs_final>-cunbud ) * 100.
+          ENDIF.
+          <fs_final>-text1       = VALUE #( lt_fmcit[ rfipex = <fs_final>-rfipex ]-text1 OPTIONAL ).
+          <fs_final>-budgetpdtx  = VALUE #( lt_fmbudgetpdt[ budget_pd = <fs_final>-budget_pd ]-budgetpdtx OPTIONAL ).
+          <fs_final>-fkbtx       = VALUE #( lt_tfkbt[ rfarea = <fs_final>-rfarea ]-fkbtx OPTIONAL ).
+          <fs_final>-fuctrtxt    = VALUE #( lt_fmfctrt[ rfistl = <fs_final>-rfistl ]-fuctrtxt OPTIONAL ).
+          <fs_final>-description = VALUE #( lt_gmgrtexts[ grant_nbr = <fs_final>-grant_nbr ]-description OPTIONAL ).
+
+          DATA(ls_fmfincode) = VALUE #( lt_fmfincode[ fincode = <fs_final>-rfonds ] OPTIONAL ).
+          IF ls_fmfincode IS NOT INITIAL.
+            <fs_final>-zzmof       = ls_fmfincode-zzmof.
+            <fs_final>-zzprogramid = ls_fmfincode-zzprogramid.
+            <fs_final>-zzcpn       = ls_fmfincode-zzcpn.
+            <fs_final>-zzcpntitle  = ls_fmfincode-zzcpntitle.
+            <fs_final>-type        = ls_fmfincode-type.
+            <fs_final>-finuse      = ls_fmfincode-finuse.
+            <fs_final>-zzlaw       = ls_fmfincode-zzlaw.
+            <fs_final>-zzsection   = ls_fmfincode-zzsection.
+            <fs_final>-date_exp    = ls_fmfincode-date_exp.
+
+            <fs_final>-beschr      = VALUE #( lt_fmfint[ fincode = ls_fmfincode-fincode ]-beschr OPTIONAL ).
+            <fs_final>-mofdesc     = VALUE #( lt_zfmt_mof[ mof = ls_fmfincode-zzmof ]-mofdesc OPTIONAL ).
+            <fs_final>-prog_desc   = VALUE #( lt_zfmt_prgid[ programid = ls_fmfincode-zzprogramid ]-prog_desc OPTIONAL ).
+            <fs_final>-fund_typet  = VALUE #( lt_fmfundtypet[ type = ls_fmfincode-type ]-fund_typet OPTIONAL ).
+            <fs_final>-finusetxt   = VALUE #( lt_fmfuset[ finuse = ls_fmfincode-finuse ]-finusetxt OPTIONAL ).
+          ENDIF.
+
+          DELETE lt_combo INDEX lv_tbx.
+        ENDIF.
+        CALL FUNCTION 'CONVERSION_EXIT_ABPSN_OUTPUT'
+          EXPORTING
+            input  = <fs_final>-posid
+          IMPORTING
+            output = <fs_final>-posid.
+
+        CLEAR: ls_fmfincode, lv_tbx.
+      ENDLOOP.
+    ENDIF.
+
+    rt_final = lt_final.
+
+  ENDMETHOD.
+
+  METHOD create_tree.
+
+    DATA: lt_final TYPE STANDARD TABLE OF ts_combo.
+
+*... §1 create an ALV tree
+    TRY.
+        cl_salv_tree=>factory(
+          IMPORTING
+            r_salv_tree = gr_tree
+          CHANGING
+            t_table     = lt_final ).
+      CATCH cx_salv_no_new_data_allowed cx_salv_error.
+        EXIT.
+    ENDTRY.
+
+    build_hedaer( ).
+
+    supply_data( CHANGING it_final = ct_final ).
+
+*... §3 Functions
+*... §3.1 activate ALV generic Functions
+*... §3.2 include own functions by setting own status
+    gr_tree->set_screen_status(
+    pfstatus      =  'ZSALV_STANDARD'
+    report        =  sy-repid
+    set_functions =  gr_tree->c_functions_all ).
+
+    DATA: lr_functions TYPE REF TO cl_salv_functions_tree.
+    lr_functions = gr_tree->get_functions( ).
+
+*... §4 set layout
+    DATA: lr_layout TYPE REF TO cl_salv_layout,
+          ls_key    TYPE salv_s_layout_key.
+    lr_layout = gr_tree->get_layout( ).
+
+*... §4.1 set the Layout Key
+    ls_key-report = sy-repid.
+    lr_layout->set_key( ls_key ).
+
+
+*... set the columns technical
+    DATA: lr_columns TYPE REF TO cl_salv_columns_tree.
+*
+    lr_columns = gr_tree->get_columns( ).
+    lr_columns->set_optimize( abap_true ).
+
+    set_column( CHANGING cs_colum = lr_columns ).
+
+    cal_subtotal( ).
+
+    set_header( ).
+
+    register_events( ).
+
+    gr_tree->display( ).
+
+  ENDMETHOD.
+
+  METHOD build_hedaer.
+
+*... § 2.1 build the hierarchy header
+    DATA: settings TYPE REF TO cl_salv_tree_settings.
+
+    settings = gr_tree->get_tree_settings( ).
+    settings->set_hierarchy_header( TEXT-hd1 ).
+    settings->set_hierarchy_tooltip( TEXT-hd1 ).
+    settings->set_hierarchy_size( 35 ).
+
+    DATA: title TYPE salv_de_tree_text.
+    title = sy-title.
+    settings->set_header( title ).
+
+  ENDMETHOD.
+
+  METHOD supply_data.
+*... §2.3 supply the data to alv, building the hierarchy
+    DATA: l1_key TYPE lvc_nkey,
+          l2_key TYPE lvc_nkey,
+          l3_key TYPE lvc_nkey.
+
+    LOOP AT it_final ASSIGNING FIELD-SYMBOL(<fs_final>).
+
+      AT NEW psphi.
+        add_l1node( EXPORTING is_data = <fs_final>
+                    CHANGING  cv_l1key = l1_key ).
+      ENDAT.
+
+      IF <fs_final>-stufe EQ '2'.
+        add_l2node( EXPORTING is_data = <fs_final>
+                              iv_l1key = l1_key
+                    CHANGING  cv_l2key = l2_key ).
+      ENDIF.
+
+      IF <fs_final>-stufe EQ '3'.
+        add_l3node( EXPORTING is_data = <fs_final>
+                              iv_l2key = l2_key
+                    CHANGING  cv_l3key = l3_key ).
+      ENDIF.
+
+    ENDLOOP.
+
+  ENDMETHOD.
+
+  METHOD cal_subtotal.
+**/--------------------------- Add Totals and Subtotals ----------------------*
+
+**// 1.Get Aggregation object of the ALV
+*    DATA: lo_aggregations TYPE REF TO cl_salv_aggregations.
+
+    DATA(lo_aggregations) = gr_tree->get_aggregations( ).
+
+*// 2.Specify tht column name for totals
+    TRY.
+        lo_aggregations->add_aggregation( EXPORTING columnname  = 'ORGBUD'
+                                                    aggregation = if_salv_c_aggregation=>total ).
+        lo_aggregations->add_aggregation( EXPORTING columnname  = 'ATDJBUD'
+                                                    aggregation = if_salv_c_aggregation=>total ).
+        lo_aggregations->add_aggregation( EXPORTING columnname  = 'CUNBUD'
+                                                    aggregation = if_salv_c_aggregation=>total ).
+        lo_aggregations->add_aggregation( EXPORTING columnname  = 'PREENC'
+                                                    aggregation = if_salv_c_aggregation=>total ).
+        lo_aggregations->add_aggregation( EXPORTING columnname  = 'ENCMBR'
+                                                    aggregation = if_salv_c_aggregation=>total ).
+        lo_aggregations->add_aggregation( EXPORTING columnname  = 'PARKDC'
+                                                    aggregation = if_salv_c_aggregation=>total ).
+        lo_aggregations->add_aggregation( EXPORTING columnname  = 'ACTUAL'
+                                                    aggregation = if_salv_c_aggregation=>total ).
+        lo_aggregations->add_aggregation( EXPORTING columnname  = 'DIFFERNCE'
+                                                    aggregation = if_salv_c_aggregation=>total ).
+        lo_aggregations->add_aggregation( EXPORTING columnname  = 'SPENTPER'
+                                                    aggregation = if_salv_c_aggregation=>average ).
+      CATCH cx_salv_data_error.
+      CATCH cx_salv_not_found.
+      CATCH cx_salv_existing.
+    ENDTRY.
+
+  ENDMETHOD.
+
+  METHOD add_l1node.
+    DATA: nodes TYPE REF TO cl_salv_nodes,
+          node  TYPE REF TO cl_salv_node,
+          text  TYPE lvc_value,
+          item  TYPE REF TO cl_salv_item.
+
+*... §0 working with nodes
+    nodes = gr_tree->get_nodes( ).
+
+    TRY.
+*  ... §0.1 add a new node
+*  ... §0.3 set the data for the nes node
+        node = nodes->add_node( related_node = ''
+                                data_row     = is_data
+                                relationship = cl_gui_column_tree=>relat_last_child ).
+
+        text = is_data-posid.
+        node->set_text( text ).
+
+        item = node->get_item( 'ORGBUD' ).
+        item->set_type( if_salv_c_item_type=>link ).
+
+        item = node->get_item( 'ATDJBUD' ).
+        item->set_type( if_salv_c_item_type=>link ).
+
+        item = node->get_item( 'PREENC' ).
+        item->set_type( if_salv_c_item_type=>link ).
+
+        item = node->get_item( 'ENCMBR' ).
+        item->set_type( if_salv_c_item_type=>link ).
+
+        item = node->get_item( 'PARKDC' ).
+        item->set_type( if_salv_c_item_type=>link ).
+
+        item = node->get_item( 'ACTUAL' ).
+        item->set_type( if_salv_c_item_type=>link ).
+
+        cv_l1key = node->get_key( ).
+      CATCH cx_salv_msg.
+    ENDTRY.
+  ENDMETHOD.
+
+  METHOD add_l2node.
+    DATA: nodes TYPE REF TO cl_salv_nodes,
+          text  TYPE lvc_value,
+          node  TYPE REF TO cl_salv_node,
+          item  TYPE REF TO cl_salv_item.
+
+    nodes = gr_tree->get_nodes( ).
+
+    TRY.
+        node = nodes->add_node( related_node = iv_l1key
+                                data_row     = is_data
+                                relationship = cl_gui_column_tree=>relat_last_child ).
+
+        text = is_data-posid.
+        node->set_text( text ).
+
+        item = node->get_item( 'ORGBUD' ).
+        item->set_type( if_salv_c_item_type=>link ).
+
+        item = node->get_item( 'ATDJBUD' ).
+        item->set_type( if_salv_c_item_type=>link ).
+
+        item = node->get_item( 'PREENC' ).
+        item->set_type( if_salv_c_item_type=>link ).
+
+        item = node->get_item( 'ENCMBR' ).
+        item->set_type( if_salv_c_item_type=>link ).
+
+        item = node->get_item( 'PARKDC' ).
+        item->set_type( if_salv_c_item_type=>link ).
+
+        item = node->get_item( 'ACTUAL' ).
+        item->set_type( if_salv_c_item_type=>link ).
+
+        cv_l2key = node->get_key( ).
+      CATCH cx_salv_msg.
+    ENDTRY.
+  ENDMETHOD.
+
+  METHOD add_l3node.
+    DATA: nodes TYPE REF TO cl_salv_nodes,
+          text  TYPE lvc_value,
+          node  TYPE REF TO cl_salv_node,
+          item  TYPE REF TO cl_salv_item.
+
+    nodes = gr_tree->get_nodes( ).
+
+    TRY.
+        node = nodes->add_node( related_node = iv_l2key
+                                data_row     = is_data
+                                relationship = cl_gui_column_tree=>relat_last_child ).
+
+*        node->set_row_style( if_salv_c_tree_style=>emphasized ).
+
+        text = is_data-posid.
+        node->set_text( text ).
+
+        item = node->get_item( 'ORGBUD' ).
+        item->set_type( if_salv_c_item_type=>link ).
+*        item->set_style( if_salv_c_tree_style=>emphasized_b ).
+
+        item = node->get_item( 'ATDJBUD' ).
+        item->set_type( if_salv_c_item_type=>link ).
+
+        item = node->get_item( 'PREENC' ).
+        item->set_type( if_salv_c_item_type=>link ).
+
+        item = node->get_item( 'ENCMBR' ).
+        item->set_type( if_salv_c_item_type=>link ).
+
+        item = node->get_item( 'PARKDC' ).
+        item->set_type( if_salv_c_item_type=>link ).
+
+        item = node->get_item( 'ACTUAL' ).
+        item->set_type( if_salv_c_item_type=>link ).
+
+        cv_l3key = node->get_key( ).
+      CATCH cx_salv_msg.
+    ENDTRY.
+  ENDMETHOD.
+
+  METHOD set_column.
+
+* those columns which should not be seen by the user at all are set technical
+    DATA: lr_column  TYPE REF TO cl_salv_column.
+
+* change a column's alignment
+*    TRY.
+*        lr_column ?= cs_colum->get_column( 'ORGBUD' ).
+*        lr_column->set_alignment( if_salv_c_alignment=>right ).
+*      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+*    ENDTRY.
+
+
+* those columns which should not be displayed from start can be set visible via layou
+* dialog are set to invisible.
+    TRY.
+        lr_column = cs_colum->get_column( 'POSID' ).
+        lr_column->set_visible( if_salv_c_bool_sap=>false ).
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+* Set Column text
+    TRY.
+        lr_column = cs_colum->get_column( 'STUFE' ).
+        lr_column->set_medium_text( 'WBS Element Level' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'POST1' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'WBS Element Desc.' ) ##NO_TEXT.
+        lr_column->set_long_text( 'WBS Element Description' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'ORGBUD' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Original Budget' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'ATDJBUD' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Adjusted Budget' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'CUNBUD' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Current Budget' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'PREENC' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Pre-Encumbrance' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'ENCMBR' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Encumbrance' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'PARKDC' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Parked FI Document' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+    TRY.
+        lr_column = cs_colum->get_column( 'ACTUAL' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Actual' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'DIFFERNCE' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Difference' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'SPENTPER' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( '% Spent' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'TEXT1' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Commt Item Desc.' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'RFONDS' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Fund' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'BESCHR' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Fund Description' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'BUDGET_PD' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Budget Period' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'BUDGETPDTX' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Budget Period Descr.' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'RFISTL' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Funds Center' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'FUCTRTXT' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Funds Center Desc.' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'RFAREA' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Functional Area' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'FKBTX' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Funnl Area Desc.' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'DESCRIPTION' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Grant Description' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'MOFDESC' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'MOF Description' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'PROG_DESC' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Program ID Desc.' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'ZZCPNTITLE' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'CPN Description' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'FUND_TYPET' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Fund Type Desc.' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'FINUSE' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Appl of Funds' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'FINUSETXT' ).
+        lr_column->set_short_text( '' ).
+        lr_column->set_medium_text( 'Appl of Funds Desc.' ) ##NO_TEXT.
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+* those columns which should not be seen by the user at all are set technical
+    TRY.
+        lr_column = cs_colum->get_column( 'PSPNR' ).
+        lr_column->set_technical( if_salv_c_bool_sap=>true ).
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'OBJNR' ).
+        lr_column->set_technical( if_salv_c_bool_sap=>true ).
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'RMEASURE' ).
+        lr_column->set_technical( if_salv_c_bool_sap=>true ).
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'PSPHI' ).
+        lr_column->set_technical( if_salv_c_bool_sap=>true ).
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+    TRY.
+        lr_column = cs_colum->get_column( 'COUNT' ).
+        lr_column->set_technical( if_salv_c_bool_sap=>true ).
+      CATCH cx_salv_not_found.                          "#EC NO_HANDLER
+    ENDTRY.
+
+  ENDMETHOD.
+
+  METHOD set_header.
+*    DATA: lr_content TYPE REF TO cl_salv_form_header_info,
+    DATA: lr_content TYPE REF TO cl_salv_form_element,
+          lr_grid    TYPE REF TO cl_salv_form_layout_grid,
+          lr_grid_1  TYPE REF TO cl_salv_form_layout_grid,
+          lr_label   TYPE REF TO cl_salv_form_label,
+          l_text     TYPE string.
+
+*... create header information
+*    l_text = |Project Budget Balance Report| ##NO_TEXT.
+*
+*    CREATE OBJECT lr_content
+*      EXPORTING
+*        text    = l_text
+*        tooltip = l_text.
+*
+*    gr_tree->set_top_of_list( lr_content ).
+
+*... create a grid
+    CREATE OBJECT lr_grid.
+
+*... create header information
+    l_text = |Project Budget Balance Report| ##NO_TEXT.
+    lr_grid->create_header_information( row    = 1
+                                        column = 1
+                                        text    = l_text
+                                        tooltip = l_text ).
+
+    lr_grid->add_row( ).
+
+*... in the cell [3,1] create a grid
+    lr_grid_1 = lr_grid->create_grid( row    = 3
+                                      column = 1 ).
+
+*... in the cell [1,1] of the second grid create a label
+    CLEAR: l_text.
+    l_text = |As of: { pa_asof }| ##NO_TEXT.
+    lr_label = lr_grid_1->create_label( row     = 1
+                                        column  = 1
+                                        text    = l_text
+                                        tooltip = l_text ).
+
+*... content is the top grid
+    lr_content = lr_grid.
+
+    gr_tree->set_top_of_list( lr_content ).
+
+  ENDMETHOD.
+
+  METHOD register_events.
+*... §5 register to the events of cl_salv_table
+    DATA: lr_events TYPE REF TO cl_salv_events_tree.
+
+    lr_events = gr_tree->get_event( ).
+
+    CREATE OBJECT gr_events.
+
+*... §4.1 register to the event USER_COMMAND
+    SET HANDLER gr_events->on_user_command FOR lr_events.
+
+*... §4.2 register to the event LINK_CLICK
+    SET HANDLER gr_events->on_link_click FOR lr_events.
+
+
+  ENDMETHOD.
+ENDCLASS.
+
+CLASS lcl_handle_events IMPLEMENTATION.
+  METHOD on_user_command.
+    DATA: lr_layout TYPE REF TO cl_salv_layout.
+
+    lr_layout = gr_tree->get_layout( ).
+
+    CASE e_salv_function.
+      WHEN 'EXPORT'.
+        CONSTANTS:lc_xlspace     TYPE c VALUE ''. "hexa value for this field should be 0030
+
+        DATA: lv_level TYPE i,
+              lv_xlsx  TYPE xstring,
+              lt_table TYPE REF TO data,
+              lr_data  TYPE REF TO data,
+              lt_nodes TYPE salv_t_nodes,
+              lr_table TYPE REF TO cl_salv_table,
+              lr_node  TYPE REF TO cl_salv_node,
+              ls_node  LIKE LINE OF lt_nodes.
+
+        FIELD-SYMBOLS: <data>  TYPE any,
+                       <table> TYPE STANDARD TABLE,
+                       <str>   TYPE any.
+        TRY.
+            lt_nodes = gr_tree->get_nodes( )->get_all_nodes( ).
+          CATCH cx_salv_msg.
+        ENDTRY.
+
+        LOOP AT lt_nodes INTO ls_node.
+          lr_node = ls_node-node.
+
+          CLEAR lv_level.
+          DO.
+            TRY.
+                lr_node = lr_node->get_parent( ).
+                ADD 1 TO lv_level.
+              CATCH cx_salv_msg.
+                EXIT.
+            ENDTRY.
+          ENDDO.
+
+          lr_data = ls_node-node->get_data_row( ).
+
+          ASSIGN lr_data->* TO <data>.
+
+          IF <table> IS NOT ASSIGNED.
+            CREATE DATA lt_table LIKE STANDARD TABLE OF <data>.
+            ASSIGN lt_table->* TO <table>.
+          ENDIF.
+
+          ASSIGN COMPONENT 1 OF STRUCTURE <data> TO <str>.
+          SUBTRACT 1 FROM lv_level.
+
+          DO lv_level TIMES.
+            CONCATENATE lc_xlspace <str> INTO <str>.
+          ENDDO.
+
+          APPEND <data> TO <table>.
+        ENDLOOP.
+
+        TRY.
+            cl_salv_table=>factory(
+              IMPORTING
+                r_salv_table = lr_table
+              CHANGING
+                t_table = <table> ).
+          CATCH cx_salv_msg.
+        ENDTRY.
+
+
+        DATA(lo_aggregations) = lr_table->get_aggregations( ).
+
+        TRY.
+            lo_aggregations->add_aggregation( EXPORTING columnname  = 'ORGBUD'
+                                                        aggregation = if_salv_c_aggregation=>total ).
+            lo_aggregations->add_aggregation( EXPORTING columnname  = 'ATDJBUD'
+                                                        aggregation = if_salv_c_aggregation=>total ).
+            lo_aggregations->add_aggregation( EXPORTING columnname  = 'CUNBUD'
+                                                        aggregation = if_salv_c_aggregation=>total ).
+            lo_aggregations->add_aggregation( EXPORTING columnname  = 'PREENC'
+                                                        aggregation = if_salv_c_aggregation=>total ).
+            lo_aggregations->add_aggregation( EXPORTING columnname  = 'ENCMBR'
+                                                        aggregation = if_salv_c_aggregation=>total ).
+            lo_aggregations->add_aggregation( EXPORTING columnname  = 'PARKDC'
+                                                        aggregation = if_salv_c_aggregation=>total ).
+            lo_aggregations->add_aggregation( EXPORTING columnname  = 'ACTUAL'
+                                                        aggregation = if_salv_c_aggregation=>total ).
+            lo_aggregations->add_aggregation( EXPORTING columnname  = 'DIFFERNCE'
+                                                        aggregation = if_salv_c_aggregation=>total ).
+            lo_aggregations->add_aggregation( EXPORTING columnname  = 'SPENTPER'
+                                                        aggregation = if_salv_c_aggregation=>average ).
+          CATCH cx_salv_data_error.
+          CATCH cx_salv_not_found.
+          CATCH cx_salv_existing.
+        ENDTRY.
+
+
+        DATA: lr_columns TYPE REF TO cl_salv_columns_table,
+              lr_column  TYPE REF TO cl_salv_column.
+
+        lr_columns = lr_table->get_columns( ).
+
+        TRY.
+            lr_column = lr_columns->get_column( 'POSID' ).
+            lr_column->set_short_text( '' ).
+            lr_column->set_medium_text( 'Project Structure' ) ##NO_TEXT.
+          CATCH cx_salv_not_found.                      "#EC NO_HANDLER
+        ENDTRY.
+
+        TRY.
+            lr_column = lr_columns->get_column( 'STUFE' ).
+            lr_column->set_medium_text( 'WBS Element Level' ) ##NO_TEXT.
+          CATCH cx_salv_not_found.                      "#EC NO_HANDLER
+        ENDTRY.
+
+        TRY.
+            lr_column = lr_columns->get_column( 'ORGBUD' ).
+            lr_column->set_short_text( '' ).
+            lr_column->set_medium_text( 'Original Budget' ) ##NO_TEXT.
+          CATCH cx_salv_not_found.                      "#EC NO_HANDLER
+        ENDTRY.
+
+        TRY.
+            lr_column = lr_columns->get_column( 'ATDJBUD' ).
+            lr_column->set_short_text( '' ).
+            lr_column->set_medium_text( 'Adjusted Budget' ) ##NO_TEXT.
+          CATCH cx_salv_not_found.                      "#EC NO_HANDLER
+        ENDTRY.
+
+        TRY.
+            lr_column = lr_columns->get_column( 'CUNBUD' ).
+            lr_column->set_short_text( '' ).
+            lr_column->set_medium_text( 'Current Budget' ) ##NO_TEXT.
+          CATCH cx_salv_not_found.                      "#EC NO_HANDLER
+        ENDTRY.
+
+        TRY.
+            lr_column = lr_columns->get_column( 'PREENC' ).
+            lr_column->set_short_text( '' ).
+            lr_column->set_medium_text( 'Pre-Encumbrance' ) ##NO_TEXT.
+          CATCH cx_salv_not_found.                      "#EC NO_HANDLER
+        ENDTRY.
+
+        TRY.
+            lr_column = lr_columns->get_column( 'ENCMBR' ).
+            lr_column->set_short_text( '' ).
+            lr_column->set_medium_text( 'Encumbrance' ) ##NO_TEXT.
+            lr_column->set_long_text( 'Encumbrance' ) ##NO_TEXT.
+          CATCH cx_salv_not_found.                      "#EC NO_HANDLER
+        ENDTRY.
+
+        TRY.
+            lr_column = lr_columns->get_column( 'PARKDC' ).
+            lr_column->set_short_text( '' ) ##NO_TEXT.
+            lr_column->set_medium_text( 'Parked FI Document' ) ##NO_TEXT.
+          CATCH cx_salv_not_found.                      "#EC NO_HANDLER
+        ENDTRY.
+        TRY.
+            lr_column = lr_columns->get_column( 'ACTUAL' ).
+            lr_column->set_short_text( 'Actual' ) ##NO_TEXT.
+            lr_column->set_medium_text( 'Actual' ) ##NO_TEXT.
+            lr_column->set_long_text( 'Actual' ) ##NO_TEXT.
+          CATCH cx_salv_not_found.                      "#EC NO_HANDLER
+        ENDTRY.
+
+        TRY.
+            lr_column = lr_columns->get_column( 'DIFFERNCE' ).
+            lr_column->set_short_text( 'Difference' ) ##NO_TEXT.
+            lr_column->set_medium_text( 'Difference' ) ##NO_TEXT.
+            lr_column->set_long_text( 'Difference' ) ##NO_TEXT.
+          CATCH cx_salv_not_found.                      "#EC NO_HANDLER
+        ENDTRY.
+
+        TRY.
+            lr_column = lr_columns->get_column( 'SPENTPER' ).
+            lr_column->set_short_text( '% Spent' ) ##NO_TEXT.
+            lr_column->set_medium_text( '% Spent' ) ##NO_TEXT.
+            lr_column->set_long_text( '% Spent' ) ##NO_TEXT.
+          CATCH cx_salv_not_found.                      "#EC NO_HANDLER
+        ENDTRY.
+
+        TRY.
+            lr_column = lr_columns->get_column( 'PSPNR' ).
+            lr_column->set_technical( if_salv_c_bool_sap=>true ).
+          CATCH cx_salv_not_found.                      "#EC NO_HANDLER
+        ENDTRY.
+
+        TRY.
+            lr_column = lr_columns->get_column( 'PSPHI' ).
+            lr_column->set_technical( if_salv_c_bool_sap=>true ).
+          CATCH cx_salv_not_found.                      "#EC NO_HANDLER
+        ENDTRY.
+
+        TRY.
+            lr_column = lr_columns->get_column( 'OBJNR' ).
+            lr_column->set_technical( if_salv_c_bool_sap=>true ).
+          CATCH cx_salv_not_found.                      "#EC NO_HANDLER
+        ENDTRY.
+
+        TRY.
+            lr_column = lr_columns->get_column( 'RMEASURE' ).
+            lr_column->set_technical( if_salv_c_bool_sap=>true ).
+          CATCH cx_salv_not_found.                      "#EC NO_HANDLER
+        ENDTRY.
+
+        TRY.
+            lr_column = lr_columns->get_column( 'COUNT' ).
+            lr_column->set_technical( if_salv_c_bool_sap=>true ).
+          CATCH cx_salv_not_found.                      "#EC NO_HANDLER
+        ENDTRY.
+
+        lv_xlsx = lr_table->to_xml( if_salv_bs_xml=>c_type_xlsx ).
+
+        DATA: lr_zip         TYPE REF TO cl_abap_zip,
+              lr_xlnode      TYPE REF TO if_ixml_node,
+              lr_xldimension TYPE REF TO if_ixml_node,
+              lr_xlsheetpr   TYPE REF TO if_ixml_element,
+              lr_xloutlinepr TYPE REF TO if_ixml_element,
+              lv_file        TYPE xstring,
+              lr_file        TYPE REF TO cl_xml_document,
+              lr_xlrows      TYPE REF TO if_ixml_node_list,
+              lr_xlrow       TYPE REF TO if_ixml_element,
+              lr_xlformat    TYPE REF TO if_ixml_element,
+              lr_xlworksheet TYPE REF TO if_ixml_element,
+              lv_tabix       TYPE i,
+              lv_maxlevel    TYPE i,
+              lv_levels      TYPE string.
+
+        CREATE OBJECT lr_zip.
+
+        lr_zip->load( lv_xlsx ).
+
+*Get Worksheet XML file
+        lr_zip->get( EXPORTING name = 'xl/worksheets/sheet1.xml'
+                     IMPORTING content = lv_file ).
+
+        CREATE OBJECT lr_file.
+
+        lr_file->parse_xstring( lv_file ).
+
+*     Row elements are under SheetData
+        lr_xlnode = lr_file->find_node( 'sheetData' ).
+
+        lr_xlrows = lr_xlnode->get_children( ).
+
+        DO lr_xlrows->get_length( ) TIMES.
+          lv_tabix = sy-index - 1.
+          lr_xlrow ?= lr_xlrows->get_item( lv_tabix ).
+
+*       Find the same node in the SALV Tree object
+          READ TABLE lt_nodes INTO ls_node INDEX lv_tabix.
+
+          IF sy-subrc EQ 0.
+            lr_node = ls_node-node.
+
+*        Find the level of the node
+            CLEAR lv_level.
+
+            DO.
+              TRY.
+                  lr_node = lr_node->get_parent( ).
+                  ADD 1 TO lv_level.
+                CATCH cx_salv_msg.
+                  EXIT.
+              ENDTRY.
+            ENDDO.
+
+            SUBTRACT 1 FROM lv_level.
+
+            IF lv_level NE 0.
+              lv_levels = lv_level.
+              IF lv_level > lv_maxlevel.
+                lv_maxlevel = lv_level.
+              ENDIF.
+              CONDENSE lv_levels.
+
+*          Assign the level to row
+              lr_xlrow->set_attribute( name = 'outlineLevel' value = lv_levels ).
+              lr_xlrow->set_attribute( name = 'hidden' value = 'true' ).
+            ENDIF.
+          ENDIF.
+        ENDDO.
+
+*Set maximum levels used in the sheet
+        lv_levels = lv_maxlevel.
+        CONDENSE lv_levels.
+        lr_xlformat ?= lr_file->find_node( 'sheetFormatPr' ).
+        lr_xlformat->set_attribute( name = 'outlineLevelRow' value = lv_levels ).
+
+*Create new element in the XML file
+        lr_xlworksheet ?= lr_file->find_node( 'worksheet' ).
+        lr_xldimension ?= lr_file->find_node( 'dimension' ).
+        lr_xlsheetpr = cl_ixml=>create( )->create_document( )->create_element( name = 'sheetPr' ).
+        lr_xloutlinepr = cl_ixml=>create( )->create_document( )->create_element( name = 'outlinePr' ).
+        lr_xlsheetpr->if_ixml_node~append_child( lr_xloutlinepr ).
+        lr_xloutlinepr->set_attribute( name = 'summaryBelow' value = 'false' ).
+        lr_xlworksheet->if_ixml_node~insert_child( new_child = lr_xlsheetpr ref_child = lr_xldimension ).
+
+*Create Xstring file for the XML, and add it to Excel Zip file
+        lr_file->render_2_xstring( IMPORTING stream = lv_file ).
+        lr_zip->delete( EXPORTING name = 'xl/worksheets/sheet1.xml' ).
+        lr_zip->add( EXPORTING name = 'xl/worksheets/sheet1.xml'
+        content = lv_file ).
+
+        lv_xlsx = lr_zip->save( ).
+
+        DATA: pv_fullpath TYPE string VALUE 'D:\DOTH\budget.xlsx'.
+        DATA lv_size              TYPE i.
+        DATA lt_bintab            TYPE solix_tab.
+
+* Convert to binary
+        CALL FUNCTION 'SCMS_XSTRING_TO_BINARY'
+          EXPORTING
+            buffer        = lv_xlsx
+          IMPORTING
+            output_length = lv_size
+          TABLES
+            binary_tab    = lt_bintab.
+
+* Save file
+        IF lt_bintab IS INITIAL.
+          EXIT.
+        ELSE.
+          DATA:
+            lv_filename TYPE string,
+            lv_path     TYPE string,
+            lv_fullpath TYPE string,
+            lv_filter   TYPE string,
+            lv_format   TYPE string.
+
+          lv_format   = 'XLSX'.
+          lv_filter   = |*.{ lv_format }|.
+          lv_fullpath = |FM_R005_Budget_balance|.
+
+          cl_gui_frontend_services=>file_save_dialog(
+            EXPORTING
+              window_title         = |Project Budget Balance Report| ##NO_TEXT
+              default_extension    = lv_format
+              default_file_name    = lv_fullpath
+              file_filter          = lv_filter
+              initial_directory    = 'C:\Budget Balance' ##NO_TEXT
+              prompt_on_overwrite  = abap_true
+           CHANGING
+             filename             = lv_filename
+             path                 = lv_path
+             fullpath             = lv_fullpath
+           EXCEPTIONS
+             cntl_error           = 1
+             error_no_gui         = 2
+             not_supported_by_gui = 3
+             OTHERS               = 4 ).
+
+          IF sy-subrc <> 0.
+            MESSAGE |File selection failed| TYPE 'I' ##NO_TEXT.
+            LEAVE LIST-PROCESSING.
+          ENDIF.
+
+          CALL FUNCTION 'GUI_DOWNLOAD' ##FM_SUBRC_OK
+            EXPORTING
+              bin_filesize = lv_size
+              filename     = lv_fullpath
+              filetype     = 'BIN'
+            TABLES
+              data_tab     = lt_bintab.
+
+          IF sy-subrc <> 0 ##FM_SUBRC_OK.
+            MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+            WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 .
+          ENDIF.
+        ENDIF.
+
+    ENDCASE.
+  ENDMETHOD.                    "on_user_command
+
+  METHOD on_link_click.
+    DATA: ls_rowdata   TYPE ts_combo,
+          lt_fmbl_fmbh TYPE TABLE OF zfm_budgetbal_rep1,
+          lt_fmit_fmio TYPE TABLE OF zfm_budgetbal_rep2.
+
+    TRY.
+        DATA(lo_sels) = gr_tree->get_selections( ).
+        DATA(lo_item) = lo_sels->get_selected_item( ).
+        IF lo_item IS NOT INITIAL.
+          DATA(lo_node_parent) = lo_item->get_node( ).
+          DATA(ls_sel_data) = lo_node_parent->get_data_row( ).
+          ASSIGN ls_sel_data->* TO FIELD-SYMBOL(<lfs_rowdata>).
+          IF <lfs_rowdata> IS ASSIGNED.
+            ls_rowdata = CORRESPONDING #( <lfs_rowdata> ).
+          ENDIF.
+        ENDIF.
+
+      CATCH cx_salv_msg.
+    ENDTRY.
+
+    CASE columnname.
+      WHEN 'ORGBUD' OR 'ATDJBUD'.
+        SELECT a~*,                                    "#EC CI_BUFFJOIN
+               b~*,
+               b~text50 AS text50_hd,
+               c~text
+          FROM fmbl AS a
+          INNER JOIN fmbh AS b
+          ON ( a~fm_area EQ b~fm_area
+          AND  a~docyear EQ b~docyear
+          AND  a~docnr   EQ b~docnr )
+          LEFT OUTER JOIN fmeddoctypet AS c
+          ON ( b~doctype EQ c~doctype
+          AND  c~langu   EQ 'E' )
+          WHERE a~fiscyear      IN @pr_fyear
+          AND   a~measure       EQ @ls_rowdata-rmeasure
+          AND   a~fund          EQ @ls_rowdata-rfonds
+          AND   a~budget_pd     EQ @ls_rowdata-budget_pd
+          AND   a~fundsctr      EQ @ls_rowdata-rfistl
+          AND   a~cmmtitem      EQ @ls_rowdata-rfipex
+          AND   a~fm_area       EQ @gc_fm_area
+          AND   a~grant_nbr     EQ @ls_rowdata-grant_nbr
+          AND   a~valtype       EQ @gc_valtype
+          AND   a~budcat        EQ @gc_budcat
+          AND   a~process       IN @gr_process
+          AND   a~budtype       IN @gr_budtyp
+          AND   b~version       EQ '000'
+          AND   b~doctype       IN @gr_doctyp
+          INTO CORRESPONDING FIELDS OF TABLE @lt_fmbl_fmbh.
+
+        IF lt_fmbl_fmbh IS NOT INITIAL.
+          TRY.
+              CALL METHOD cl_salv_table=>factory(
+                IMPORTING
+                  r_salv_table = DATA(lo_alv_display)
+                CHANGING
+                  t_table      = lt_fmbl_fmbh ).
+            CATCH cx_salv_msg.
+
+          ENDTRY.
+
+          lo_alv_display->set_screen_status(
+              pfstatus      =  'ZSALV_STANDARD_DRILL'
+              report        =  sy-repid
+              set_functions = lo_alv_display->c_functions_all ).
+
+          DATA: lr_columns TYPE REF TO cl_salv_columns.
+          lr_columns = lo_alv_display->get_columns( ).
+          lr_columns->set_optimize( abap_true ).
+
+          lo_alv_display->display( ).
+        ENDIF.
+
+      WHEN 'PREENC' OR 'ENCMBR' OR 'PARKDC' OR 'ACTUAL'.
+
+        DATA: lr_wrrtp  TYPE RANGE OF fm_wrttp.
+        lr_wrrtp = COND #( WHEN columnname EQ 'PREENC' THEN VALUE #( ( sign = 'I' option = 'EQ' low = '50' )
+                                                                     ( sign = 'I' option = 'EQ' low = '80') )
+                           WHEN columnname EQ 'ENCMBR' THEN VALUE #( ( sign = 'I' option = 'EQ' low = '51' )
+                                                                     ( sign = 'I' option = 'EQ' low = '52' )
+                                                                     ( sign = 'I' option = 'EQ' low = '65' )
+                                                                     ( sign = 'I' option = 'EQ' low = '81' ) )
+                           WHEN columnname EQ 'PARKDC' THEN VALUE #( ( sign = 'I' option = 'EQ' low = '60' ) )
+                           WHEN columnname EQ 'ACTUAL' THEN VALUE #( ( sign = 'I' option = 'EQ' low = '54' )
+                                                                     ( sign = 'I' option = 'EQ' low = '66')
+                                                                     ( sign = 'I' option = 'EQ' low = '95') )
+                                                                     ).
+
+        IF columnname EQ 'PREENC' OR columnname EQ 'ENCMBR'.
+
+          SELECT *
+            FROM fmioi
+            WHERE bukrs EQ @gc_rbukrs
+            AND   fistl EQ @ls_rowdata-rfistl
+            AND   fipex EQ @ls_rowdata-rfipex
+            AND   fonds EQ @ls_rowdata-rfonds
+            AND   measure EQ @ls_rowdata-rmeasure
+            AND   gjahr IN @pr_fyear
+            AND   wrttp IN @lr_wrrtp
+            INTO TABLE @DATA(lt_fmioi).
+
+          IF NOT lt_fmioi IS INITIAL.
+            IF pc_statp EQ abap_false.
+              DELETE lt_fmioi WHERE stats EQ abap_true.
+            ENDIF.
+            CLEAR: lt_fmit_fmio.
+            lt_fmit_fmio = CORRESPONDING #( lt_fmioi MAPPING menge = quant_open ).
+          ENDIF.
+
+        ELSEIF columnname EQ 'PARKDC' OR columnname EQ 'ACTUAL'.
+
+          SELECT *
+            FROM fmifiit
+            WHERE bukrs EQ @gc_rbukrs
+            AND   fistl EQ @ls_rowdata-rfistl
+            AND   fipex EQ @ls_rowdata-rfipex
+            AND   fonds EQ @ls_rowdata-rfonds
+            AND   measure EQ @ls_rowdata-rmeasure
+            AND   gjahr IN @pr_fyear
+            AND   wrttp IN @lr_wrrtp
+            INTO TABLE @DATA(lt_fmifiit).
+
+          IF lt_fmifiit IS NOT INITIAL.
+            IF pc_statp EQ abap_false.
+              DELETE lt_fmifiit WHERE stats EQ abap_true.
+            ENDIF.
+            CLEAR: lt_fmit_fmio.
+            lt_fmit_fmio = CORRESPONDING #( lt_fmifiit ).
+          ENDIF.
+
+          IF columnname EQ 'ACTUAL'.
+            SELECT *                                    "#EC CI_NOFIRST
+              FROM fmia
+              WHERE rbukrs EQ @gc_rbukrs
+              AND   rfistl EQ @ls_rowdata-rfistl
+              AND   rfipex EQ @ls_rowdata-rfipex
+              AND   rfonds EQ @ls_rowdata-rfonds
+              AND   rmeasure EQ @ls_rowdata-rmeasure
+              AND   ryear  IN @pr_fyear
+              AND   rwrttp IN @lr_wrrtp
+              INTO TABLE @DATA(lt_fmia).
+
+            IF lt_fmia IS NOT INITIAL.
+              IF pc_statp EQ abap_false.
+                DELETE lt_fmia WHERE rstats EQ abap_true.
+              ENDIF.
+              lt_fmit_fmio = CORRESPONDING #( BASE ( lt_fmit_fmio ) lt_fmia MAPPING fonds    = rfonds
+                                                                                    fistl    = rfistl
+                                                                                    fipex    = rfipex
+                                                                                    measure  = rmeasure
+                                                                                    farea    = rfarea
+                                                                                    trbtr    = tsl
+                                                                                    bus_area = rbusa
+                                                                                    objnrz   = robjnrz
+                                                                                    wrttp    = rwrttp
+                                                                                    btart    = rbtart
+                                                                                    perio    = poper
+                                                                                    gjahr    = ryear
+                                                                                    stats    = rstats
+                                                                                    hkont    = rhkont
+                                                                                    vrgng    = refactiv ).
+            ENDIF.
+
+          ENDIF.
+        ENDIF.
+
+        IF lt_fmit_fmio IS NOT INITIAL.
+          TRY.
+              CALL METHOD cl_salv_table=>factory(
+                IMPORTING
+                  r_salv_table = lo_alv_display
+                CHANGING
+                  t_table      = lt_fmit_fmio ).
+            CATCH cx_salv_msg.
+
+          ENDTRY.
+
+          lo_alv_display->set_screen_status(
+              pfstatus      =  'ZSALV_STANDARD_DRILL'
+              report        =  sy-repid
+              set_functions = lo_alv_display->c_functions_all ).
+
+          lr_columns = lo_alv_display->get_columns( ).
+          lr_columns->set_optimize( abap_true ).
+
+          lo_alv_display->display( ).
+        ENDIF.
+
+      WHEN OTHERS.
+    ENDCASE.
+
+*        IF lo_item IS NOT INITIAL.
+*          DATA(lt_childr) = lo_node_parent->get_children( ).
+*          LOOP AT lt_childr ASSIGNING FIELD-SYMBOL(<ls_childr>).
+*            DATA(ls_datarow) = <ls_childr>-node->get_data_row( ).
+*            ASSIGN ls_datarow->* TO FIELD-SYMBOL(<lfs_rowdata>).
+*          ENDLOOP.
+*        ENDIF.
+
+  ENDMETHOD.
+ENDCLASS.                    "lcl_handle_events IMPLEMENTATION
