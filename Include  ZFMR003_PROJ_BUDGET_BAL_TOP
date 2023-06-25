@@ -1,0 +1,211 @@
+*&---------------------------------------------------------------------*
+*& Include          ZFMR003_PROJ_BUDGET_BAL_TOP
+*&---------------------------------------------------------------------*
+************************************************************************
+Project Budget Balance Rep
+************************************************************************
+
+"Tables
+TABLES: fmbh, fmit, fmbl, fmia, fmb_sel_screen,
+        fmcit, fmbudgetpdt, tfkbt, fmfctrt,
+        gmgrtexts, fmfincode, zfmt_prgid,
+        fmfundtypet, fmfuset, fmfint.
+
+"Declare Constant varibles
+CONSTANTS: gc_fm_area TYPE fmbh-fm_area
+                      VALUE '1000',
+           gc_rbukrs  TYPE fmit-rbukrs
+                      VALUE '1000',
+           gc_budcat  TYPE fmbl-budcat
+                      VALUE '9F',
+           gc_valtype TYPE fmbl-valtype
+                      VALUE 'B1',
+           gc_rldnr   TYPE fmia-rldnr
+                      VALUE '9A',
+           gc_or      TYPE char2
+                      VALUE 'OR',
+           gc_msg1    TYPE char100
+                      VALUE 'No Relevant Data Found!' ##NO_TEXT.
+
+"Declare Type structures
+TYPES: BEGIN OF ts_fmit,
+         rldnr     TYPE rldnr,
+         rrcty     TYPE rrcty,
+         rvers     TYPE rvers,
+         ryear     TYPE gjahr,
+         robjnr    TYPE	gobjnr_r,
+         cobjnr    TYPE	gobjnr_c,
+         sobjnr    TYPE	gobjnr_s,
+         rtcur     TYPE rtcur,
+         rpmax     TYPE rpmax,
+         rfistl    TYPE fistl,
+         rfonds    TYPE bp_geber,
+         rfipex    TYPE fm_fipex,
+         rwrttp    TYPE fm_wrttp,
+         rfarea    TYPE fm_farea,
+         rmeasure  TYPE fm_measure,
+         grant_nbr TYPE gm_grant_nbr,
+         budget_pd TYPE fm_budget_period,
+         tslvt     TYPE tslvt9_cs,
+         tsl01     TYPE tslxx9_cs,
+         tsl02     TYPE tslxx9_cs,
+         tsl03     TYPE tslxx9_cs,
+         tsl04     TYPE tslxx9_cs,
+         tsl05     TYPE tslxx9_cs,
+         tsl06     TYPE tslxx9_cs,
+         tsl07     TYPE tslxx9_cs,
+         tsl08     TYPE tslxx9_cs,
+         tsl09     TYPE tslxx9_cs,
+         tsl10     TYPE tslxx9_cs,
+         tsl11     TYPE tslxx9_cs,
+         tsl12     TYPE tslxx9_cs,
+         tsl13     TYPE tslxx9_cs,
+         tsl14     TYPE tslxx9_cs,
+         tsl15     TYPE tslxx9_cs,
+         tsl16     TYPE tslxx9_cs,
+         objnr     TYPE prps-objnr,
+         psphi     TYPE prps-psphi,
+         post1     TYPE ps_post1,
+         stufe     TYPE prps-stufe,
+         rstats    TYPE fm_stats,
+       END OF ts_fmit,
+
+       BEGIN OF ts_fmbl,
+         fm_area   TYPE fmbl-fm_area,
+         docyear   TYPE fmbl-docyear,
+         docnr     TYPE fmbl-docnr,
+         docln     TYPE bued_docln,
+         rpmax     TYPE rpmax,
+         fiscyear  TYPE fmbl-fiscyear,
+         fund      TYPE fmbl-fund,
+         budget_pd TYPE fmbl-budget_pd,
+         fundsctr  TYPE fmbl-fundsctr,
+         cmmtitem  TYPE fmbl-cmmtitem,
+         funcarea  TYPE fmbl-funcarea,
+         grant_nbr TYPE fmbl-grant_nbr,
+         measure   TYPE fmbl-measure,
+         budcat    TYPE fmbl-budcat,
+         valtype   TYPE fmbl-valtype,
+         process   TYPE fmbl-process,
+         budtype   TYPE fmbl-budtype,
+         tval01    TYPE fmbl-tval01,
+         tval02    TYPE fmbl-tval02,
+         tval03    TYPE fmbl-tval03,
+         tval04    TYPE fmbl-tval04,
+         tval05    TYPE fmbl-tval05,
+         tval06    TYPE fmbl-tval06,
+         tval07    TYPE fmbl-tval07,
+         tval08    TYPE fmbl-tval08,
+         tval09    TYPE fmbl-tval09,
+         tval10    TYPE fmbl-tval10,
+         tval11    TYPE fmbl-tval11,
+         tval12    TYPE fmbl-tval12,
+         tval13    TYPE fmbl-tval13,
+         tval14    TYPE fmbl-tval14,
+         tval15    TYPE fmbl-tval15,
+         tval16    TYPE fmbl-tval16,
+         doctype   TYPE fmbh-doctype,
+         objnr     TYPE prps-objnr,
+         psphi     TYPE prps-psphi,
+         post1     TYPE ps_post1,
+         stufe     TYPE prps-stufe,
+       END OF ts_fmbl,
+
+       BEGIN OF ts_combo,
+         psphi       TYPE prps-psphi,
+         pspnr       TYPE ps_intnr,
+         objnr       TYPE prps-objnr,
+         posid       TYPE ps_posid,
+         rmeasure    TYPE fm_measure,
+         post1       TYPE ps_post1,
+         stufe       TYPE char1,
+         orgbud      TYPE fmbl-tval01,
+         atdjbud     TYPE fmbl-tval01,
+         cunbud      TYPE fmbl-tval01,
+         preenc      TYPE tslvt9_cs,
+         encmbr      TYPE tslvt9_cs,
+         parkdc      TYPE tslvt9_cs,
+         actual      TYPE tslvt9_cs,
+         differnce   TYPE tslvt9_cs,
+         spentper    TYPE tslvt9_cs,
+         rfipex      TYPE fm_fipex,
+         text1       TYPE fmcit-text1,
+         rfonds      TYPE bp_geber,
+         beschr      TYPE fmfint-beschr,
+         budget_pd   TYPE fm_budget_period,
+         budgetpdtx  TYPE fmbudgetpdt-budgetpdtx,
+         rfistl      TYPE fistl,
+         fuctrtxt    TYPE fmfctrt-beschr,
+         rfarea      TYPE fm_farea,
+         fkbtx       TYPE tfkbt-fkbtx,
+         grant_nbr   TYPE gm_grant_nbr,
+         description TYPE gmgrtexts-description,
+         zzmof       TYPE fmfincode-zzmof,
+         mofdesc     TYPE zfmt_mof-mofdesc,
+         zzprogramid TYPE fmfincode-zzprogramid,
+         prog_desc   TYPE zfmt_prgid-prog_desc,
+         zzcpn       TYPE fmfincode-zzcpn,
+         zzcpntitle  TYPE fmfincode-zzcpntitle,
+         type        TYPE fmfincode-type,
+         fund_typet  TYPE fmfundtypet-fund_typet,
+         finuse      TYPE fmfincode-finuse,
+         finusetxt   TYPE fmfuset-beschr,
+         zzlaw       TYPE fmfincode-zzlaw,
+         zzsection   TYPE fmfincode-zzsection,
+         date_exp    TYPE fmfincode-date_exp,
+         count       TYPE i,
+       END OF ts_combo.
+
+"Data Declaration and Ranges
+DATA: gr_tree    TYPE REF TO cl_salv_tree,
+      gr_process TYPE RANGE OF buku_process,
+      gr_budtyp1 TYPE RANGE OF buku_budtype,
+      gr_budtyp2 TYPE RANGE OF buku_budtype,
+      gr_budtyp  TYPE RANGE OF buku_budtype,
+      gr_doctyp1 TYPE RANGE OF bued_doctype,
+      gr_doctyp2 TYPE RANGE OF bued_doctype,
+      gr_doctyp  TYPE RANGE OF bued_doctype.
+
+*... §4 Definition is later
+CLASS lcl_handle_events DEFINITION DEFERRED.
+DATA: gr_events TYPE REF TO lcl_handle_events.
+
+"Declare type Tables
+TYPES: tt_fmit  TYPE TABLE OF ts_fmit WITH DEFAULT KEY,
+       tt_fmbl  TYPE TABLE OF ts_fmbl WITH DEFAULT KEY,
+       tt_final TYPE TABLE OF ts_combo WITH DEFAULT KEY.
+
+*Local Class to process data
+CLASS lcl_process_data DEFINITION CREATE PUBLIC FINAL.
+  PUBLIC SECTION.
+    CLASS-METHODS:
+      f4_group  IMPORTING iv_grclass TYPE rgsbs-class
+                CHANGING  cv_paramtr TYPE grpname,
+      fill_range,
+      fill_tvarvc,
+      get_data    RETURNING VALUE(rt_final) TYPE tt_final,
+      create_tree CHANGING  ct_final TYPE tt_final,
+      build_hedaer,
+      supply_data CHANGING it_final TYPE tt_final,
+      cal_subtotal,
+      add_l1node  IMPORTING is_data  TYPE ts_combo
+                  CHANGING  cv_l1key TYPE lvc_nkey,
+      add_l2node  IMPORTING is_data  TYPE ts_combo
+                            iv_l1key TYPE lvc_nkey
+                  CHANGING  cv_l2key TYPE lvc_nkey,
+      add_l3node  IMPORTING is_data  TYPE ts_combo
+                            iv_l2key TYPE lvc_nkey
+                  CHANGING  cv_l3key TYPE lvc_nkey,
+      set_column  CHANGING  cs_colum TYPE REF TO cl_salv_columns_tree,
+      set_header,
+      register_events.
+ENDCLASS.
+
+CLASS lcl_handle_events DEFINITION.
+  PUBLIC SECTION.
+    METHODS:
+      on_user_command FOR EVENT added_function OF cl_salv_events
+        IMPORTING e_salv_function,
+      on_link_click FOR EVENT link_click OF cl_salv_events_tree
+        IMPORTING columnname node_key sender.
+ENDCLASS.                    "lcl_handle_events DEFINITION
