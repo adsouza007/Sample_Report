@@ -1,0 +1,143 @@
+*&---------------------------------------------------------------------*
+*& Include          ZFMR003_PROJ_BUDGET_BAL_SEL
+************************************************************************
+************************************************************************
+
+"Selection Screen - Selection Screen
+SELECTION-SCREEN: BEGIN OF BLOCK a1 WITH FRAME TITLE TEXT-001.
+  "As of
+  SELECTION-SCREEN: BEGIN OF BLOCK b0.
+    SELECTION-SCREEN BEGIN OF LINE.
+      SELECTION-SCREEN COMMENT 1(23) FOR FIELD pa_asof.
+      PARAMETERS: pa_asof TYPE char19 OBLIGATORY MODIF ID asf.
+    SELECTION-SCREEN END OF LINE.
+  SELECTION-SCREEN: END OF BLOCK b0.
+
+  "Fiscal Year
+  SELECTION-SCREEN: BEGIN OF BLOCK b1.
+    SELECTION-SCREEN BEGIN OF LINE.
+      SELECTION-SCREEN COMMENT 1(20) FOR FIELD pr_fyear.
+      SELECT-OPTIONS:  pr_fyear FOR fmbl-fiscyear OBLIGATORY.
+    SELECTION-SCREEN END OF LINE.
+  SELECTION-SCREEN: END OF BLOCK b1.
+
+  "Funded Program
+  SELECTION-SCREEN: BEGIN OF BLOCK b2.
+    SELECTION-SCREEN BEGIN OF LINE.
+      SELECTION-SCREEN COMMENT 1(20) FOR FIELD pr_mesr.
+      SELECT-OPTIONS: pr_mesr FOR fmb_sel_screen-measure MEMORY ID fm_measure MODIF ID mes.
+      SELECTION-SCREEN POSITION 78.
+      SELECTION-SCREEN COMMENT 79(11) TEXT-002 FOR FIELD pa_mesrg.
+      PARAMETERS: pa_mesrg TYPE grpname MEMORY ID fdprg_group.
+    SELECTION-SCREEN END OF LINE.
+  SELECTION-SCREEN: END OF BLOCK b2.
+
+  "Fund
+  SELECTION-SCREEN: BEGIN OF BLOCK b3.
+    SELECTION-SCREEN BEGIN OF LINE.
+      SELECTION-SCREEN COMMENT 1(20) FOR FIELD pr_fund.
+      SELECT-OPTIONS: pr_fund FOR fmb_sel_screen-fonds MEMORY ID fic MODIF ID fic.
+      SELECTION-SCREEN POSITION 78.
+      SELECTION-SCREEN COMMENT 79(11) TEXT-002 FOR FIELD pa_fundg.
+      PARAMETERS: pa_fundg TYPE grpname MEMORY ID fog.
+    SELECTION-SCREEN END OF LINE.
+  SELECTION-SCREEN: END OF BLOCK b3.
+
+  "Budget Period
+  SELECTION-SCREEN: BEGIN OF BLOCK b4.
+    SELECTION-SCREEN BEGIN OF LINE.
+      SELECTION-SCREEN COMMENT 1(20) FOR FIELD pr_budpd.
+      SELECT-OPTIONS:  pr_budpd FOR fmb_sel_screen-budget_pd MEMORY ID budper MODIF ID bpd.
+      SELECTION-SCREEN POSITION 78.
+      SELECTION-SCREEN COMMENT 79(11) TEXT-002 FOR FIELD pa_budpd.
+      PARAMETERS: pa_budpd TYPE grpname MEMORY ID bpd.
+    SELECTION-SCREEN END OF LINE.
+  SELECTION-SCREEN: END OF BLOCK b4.
+
+  "Fund Center
+  SELECTION-SCREEN: BEGIN OF BLOCK b5.
+    SELECTION-SCREEN BEGIN OF LINE.
+      SELECTION-SCREEN COMMENT 1(20) FOR FIELD pr_fndc.
+      SELECT-OPTIONS: pr_fndc FOR fmb_sel_screen-fictr MEMORY ID fis MODIF ID fis.
+      SELECTION-SCREEN POSITION 78.
+      SELECTION-SCREEN COMMENT 79(11) TEXT-002 FOR FIELD pa_fndcg.
+      PARAMETERS: pa_fndcg TYPE grpname MEMORY ID fictr_group.
+    SELECTION-SCREEN END OF LINE.
+  SELECTION-SCREEN: END OF BLOCK b5.
+
+  "Functional Area
+  SELECTION-SCREEN: BEGIN OF BLOCK b6.
+    SELECTION-SCREEN BEGIN OF LINE.
+      SELECTION-SCREEN COMMENT 1(20) FOR FIELD pr_farea.
+      SELECT-OPTIONS:  pr_farea FOR fmb_sel_screen-farea MEMORY ID fbe MODIF ID fbe.
+      SELECTION-SCREEN POSITION 78.
+      SELECTION-SCREEN COMMENT 79(11) TEXT-002 FOR FIELD pa_farea.
+      PARAMETERS: pa_farea TYPE grpname MEMORY ID fug.
+    SELECTION-SCREEN END OF LINE.
+  SELECTION-SCREEN: END OF BLOCK b6.
+
+  "Commitment Item
+  SELECTION-SCREEN: BEGIN OF BLOCK b7.
+    SELECTION-SCREEN BEGIN OF LINE.
+      SELECTION-SCREEN COMMENT 1(20) FOR FIELD pr_fipex.
+      SELECT-OPTIONS: pr_fipex  FOR fmb_sel_screen-fipex MEMORY ID fps MODIF ID fps.
+      SELECTION-SCREEN POSITION 78.
+      SELECTION-SCREEN COMMENT 79(11) TEXT-002 FOR FIELD pa_fpexg.
+      PARAMETERS: pa_fpexg TYPE grpname MEMORY ID fipex_group.
+    SELECTION-SCREEN END OF LINE.
+  SELECTION-SCREEN: END OF BLOCK b7.
+
+  "Grant
+  SELECTION-SCREEN: BEGIN OF BLOCK b8.
+    SELECTION-SCREEN BEGIN OF LINE.
+      SELECTION-SCREEN COMMENT 1(20) FOR FIELD pr_grant.
+      SELECT-OPTIONS: pr_grant FOR fmb_sel_screen-grant_nbr MEMORY ID gm_grant_nbr MODIF ID gmg.
+      SELECTION-SCREEN POSITION 78.
+      SELECTION-SCREEN COMMENT 79(11) TEXT-002 FOR FIELD pa_grntg.
+      PARAMETERS: pa_grntg TYPE grpname MEMORY ID grant_group.
+    SELECTION-SCREEN END OF LINE.
+  SELECTION-SCREEN: END OF BLOCK b8.
+
+SELECTION-SCREEN:END OF BLOCK a1.
+
+"Include Statistical Postings
+SELECTION-SCREEN BEGIN OF BLOCK a2 WITH FRAME.
+  PARAMETERS : pc_statp  AS CHECKBOX DEFAULT ''.
+SELECTION-SCREEN END OF BLOCK a2.
+
+"Open Projects Only
+SELECTION-SCREEN BEGIN OF BLOCK a3 WITH FRAME.
+  PARAMETERS : pc_stat  AS CHECKBOX DEFAULT ''.
+SELECTION-SCREEN END OF BLOCK a3.
+
+
+*At Selection Screen Output.
+AT SELECTION-SCREEN OUTPUT.
+  LOOP AT SCREEN.
+    IF screen-group1 EQ 'ASF'.
+      screen-input = 0.
+      MODIFY SCREEN.
+    ENDIF.
+  ENDLOOP.
+
+*At Selection Screen F4 value
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR pa_budpd.
+  lcl_process_data=>f4_group( EXPORTING iv_grclass = '0114' CHANGING cv_paramtr = pa_budpd ).
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR pa_farea.
+  lcl_process_data=>f4_group( EXPORTING iv_grclass = '0112' CHANGING cv_paramtr = pa_farea ).
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR pa_mesrg.
+  lcl_process_data=>f4_group( EXPORTING iv_grclass = '0315' CHANGING cv_paramtr = pa_mesrg ).
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR pa_fundg.
+  lcl_process_data=>f4_group( EXPORTING iv_grclass = '0111' CHANGING cv_paramtr = pa_fundg ).
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR pa_fndcg.
+  lcl_process_data=>f4_group( EXPORTING iv_grclass = '0312' CHANGING cv_paramtr = pa_fndcg ).
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR pa_fpexg.
+  lcl_process_data=>f4_group( EXPORTING iv_grclass = '0311' CHANGING cv_paramtr = pa_fpexg ).
+
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR pa_grntg.
+  lcl_process_data=>f4_group( EXPORTING iv_grclass = '0113' CHANGING cv_paramtr = pa_grntg ).
